@@ -4,7 +4,7 @@
  * @donate https://paypal.me/Valafi
  * @website https://github.com/Valafi/MoreEmbeddedPlayers
  * @source https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
- * @version 0.0.1
+ * @version 0.0.2
  * @updateUrl https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
  */
 
@@ -15,12 +15,12 @@
 class MoreEmbeddedPlayers {
     getName() {return "MoreEmbeddedPlayers";}
     getDescription() {return "Adds embedded players for: Bandcamp, Google Drive, Mega, and module audio files (over 50 types). More to come! Note: Certain features require the usage of a CORS bypass proxy to download data like album IDs. This component will be more customizable in the coming updates to the plugin.";}
-    getVersion() {return "0.0.1";}
+    getVersion() {return "0.0.2";}
     getAuthor() {return "Valafi#7698";}
 
     start() {
         if (!global.ZeresPluginLibrary) return window.BdApi.alert("Library Missing",`The library plugin needed for ${this.getName()} is missing.<br /><br /> <a href="https://betterdiscord.net/ghdl?url=https://raw.githubusercontent.com/rauenzi/BDPluginLibrary/master/release/0PluginLibrary.plugin.js" target="_blank">Click here to download the library!</a>`);
-        ZLibrary.PluginUpdater.checkForUpdate(this.getName(), this.getVersion(), "LINK_TO_RAW_CODE");
+        ZLibrary.PluginUpdater.checkForUpdate(this.getName(), this.getVersion(), "https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js");
 
         this.loadSettings();
 
