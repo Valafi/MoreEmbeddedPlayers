@@ -4,7 +4,7 @@
  * @donate https://paypal.me/Valafi
  * @website https://github.com/Valafi/MoreEmbeddedPlayers
  * @source https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
- * @version 0.0.2
+ * @version 0.0.3
  * @updateUrl https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
  */
 
@@ -14,8 +14,8 @@
 
 class MoreEmbeddedPlayers {
     getName() {return "MoreEmbeddedPlayers";}
-    getDescription() {return "Adds embedded players for: Bandcamp, Google Drive, Mega, and module audio files (over 50 types). More to come! Note: Certain features require the usage of a CORS bypass proxy to download data like album IDs. This component will be more customizable in the coming updates to the plugin.";}
-    getVersion() {return "0.0.2";}
+    getDescription() {return "Adds embedded players for: Bandcamp, Google Drive, Mega, and module audio files (over 50 types). More to come! Note: Certain features require the usage of a CORS bypass proxy to download data like album IDs, you can override the proxy used in the plugin settings.";}
+    getVersion() {return "0.0.3";}
     getAuthor() {return "Valafi#7698";}
 
     start() {
@@ -41,6 +41,8 @@ class MoreEmbeddedPlayers {
         list.push(new ZLibrary.Settings.Switch("Enable Google Drive Embedding", "Website embeds for Google Drive file links will be replaced with the Google Drive Previewer.\nSupport coming soon for these types: My Maps, Apps Script, Jamboard.", this.settings.google_drive, (value) => { this.settings.google_drive = value; }, {disabled: false}));
         list.push(new ZLibrary.Settings.Switch("Enable Mega Embedding", "Website embeds for Mega links will be replaced with the Mega player.", this.settings.mega, (value) => { this.settings.mega = value; }, {disabled: false}));
         list.push(new ZLibrary.Settings.Switch("Enable Module Audio Player", "File attachments for module audio files will be playable with a version of the Cowbell player.", this.settings.module_audio, (value) => { this.settings.module_audio = value; }, {disabled: false}));
+        list.push(new ZLibrary.Settings.Switch("Override CORS Proxy", "This plugin has two parts which (currently) require a CORS proxy: getting the Bandcamp album/track ID, and downloading module audio file attachments to be played. The default CORS proxy used is from https://allorigins.win, but you can override that by turning this setting on and changing the text below.", this.settings.override_cors_proxy, (value) => { this.settings.override_cors_proxy = value; }, {disabled: false}));
+        list.push(new ZLibrary.Settings.Textbox(null, null, this.settings.custom_cors_proxy, (value) => { this.settings.custom_cors_proxy = value; }, {placeholder: "https://api.allorigins.win/raw?url="}));
 
         const panel = new ZLibrary.Settings.SettingPanel(this.saveSettings.bind(this), ...list);
         return panel.getElement();
@@ -57,6 +59,8 @@ class MoreEmbeddedPlayers {
             google_drive: true,
             mega: true,
             module_audio: true,
+            override_cors_proxy: false,
+            custom_cors_proxy: "https://api.allorigins.win/raw?url=",
             cache: {}
         }));
     }
@@ -177,16 +181,34 @@ class MoreEmbeddedPlayers {
         let url = new URL(links[0]); // TODO: Remove assumption here
 
         // Get attachment file extension
-        let ext = (() => { // TODO: This is a bit sloppy
+        let ext;
+        let ext2;
+        {
             let parts = url.pathname.split(".");
+            ext = parts[parts.length - 1];
+            ext2 = "";
 
-            return parts[parts.length - 1];
-        })();
+            switch (ext.toLowerCase()) {
+                // Compressed files (LHA and more?)
+                case "zip":
+                case "rar":
+                case "gz":
+                case "7z":
+                case "bz2":
+                case "tar":
+                case "wim":
+                case "xz":
+                    ext2 = ext;
+                    ext = parts[parts.length - 2];
+            }
+        }
         //console.log(url);
-        //console.log(ext);
+        //console.log(ext, ext2);
 
         switch (ext.toLowerCase()) {
-            case "mod": // https://wiki.openmpt.org/Manual:_Module_formats
+            // MODULE AUDIO FILES https://wiki.openmpt.org/Manual:_Module_formats, not supported: ahx, hvl
+            // Module audio files
+            case "mod":
             case "s3m":
             case "xm":
             case "it":
@@ -206,7 +228,6 @@ class MoreEmbeddedPlayers {
             case "j2b":
             case "mdl":
             case "med":
-            case "mo3": // TODO: This is a duplicate
             case "mt2":
             case "mtm":
             case "okt":
@@ -217,7 +238,11 @@ class MoreEmbeddedPlayers {
             case "stm":
             case "ult":
             case "umx":
-            // Unconfirmed support
+            // Module audio files (compressed)
+            case "mo3":
+            // Module audio files (unlisted support)
+            case "oct":
+            // Module audio files (unconfirmed support)
             case "mid": // TODO: Should probably disable this one...
             case "dsym":
             case "fmt":
@@ -232,29 +257,30 @@ class MoreEmbeddedPlayers {
             case "sfx2":
             case "mms":
             case "stx":
-            case "stp": // TODO: Untested because discord displayed it as code...
+            case "stp": // TODO: Untested because Discord displayed it as code...
             case "symmod":
             case "wow":
-            // Compressed (ommitting zip, rar, etc.) // TODO: Check for double extension to support the ommitted?
+            // Module audio files (compressed, unconfirmed support)
             case "mdz":
             case "s3z":
             case "xmz":
             case "itz":
             case "mptmz":
             case "mdr":
-            // ???
+            // Module audio files (???, unconfirmed support)
             case "mmcmp":
             case "xpk":
             case "pp20":
-            // MO3 files?
-            case "mo3":
-            // NOT supported
-            // case "ahx":
-            // UNTESTED
-            // case "hvl":
-            // case "oct":
-            // EXPERIMENT
-            //case "zip": // This worked
+                // Experimental archive support
+                switch (ext2.toLowerCase()) {
+                    case "zip": // TODO: Only supports the Deflate method, probably why gz works too
+                    //case "rar": // TODO: This was supposed to work
+                    case "gz":
+                        break;
+                    default: // Not supported: 7z, bz2, tar, wim, xz
+                        if (ext2 != "") { return; }
+                }
+
                 //console.log("Module file detected!");
                 if (this.settings.module_audio == false) { return; }
                 this.attachCowbell(url, a);
@@ -276,7 +302,7 @@ class MoreEmbeddedPlayers {
                 }
             }
         }
-        xhr.open("GET", `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`, true); // TODO: Does asynchronous cause issues? I should validate element still exists // TODO: Switch to raw
+        xhr.open("GET", `${this.settings.override_cors_proxy ? this.settings.custom_cors_proxy : "https://api.allorigins.win/raw?url="}${encodeURIComponent(url)}`, true); // TODO: Does asynchronous cause issues? I should validate element still exists
         xhr.send();
     }
 
@@ -419,7 +445,7 @@ class MoreEmbeddedPlayers {
                 var sidPlayer = new Cowbell.Player.JSSID();
                 var asapPlayer = new Cowbell.Player.ASAP();
 
-                var track = new modPlayer.Track('https://api.allorigins.win/raw?url=${encodeURIComponent(url)}');
+                var track = new modPlayer.Track('${this.settings.override_cors_proxy ? this.settings.custom_cors_proxy : "https://api.allorigins.win/raw?url="}${encodeURIComponent(url)}');
 
                 var container = document.getElementById('player');
                 var playerUI = new Cowbell.UI.Basic(container);
