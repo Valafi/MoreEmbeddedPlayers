@@ -4,7 +4,7 @@
  * @donate https://paypal.me/Valafi
  * @website https://github.com/Valafi/MoreEmbeddedPlayers
  * @source https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
- * @version 0.0.5
+ * @version 0.0.6
  * @updateUrl https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
  */
 
@@ -15,7 +15,7 @@
 class MoreEmbeddedPlayers {
     getName() {return "MoreEmbeddedPlayers";}
     getDescription() {return "Adds embedded players for: Bandcamp, Google Drive, Mega, and module audio files (over 50 types). More to come! Note: Certain features require the usage of a CORS bypass proxy to download data like album IDs, you can override the proxy used in the plugin settings.";}
-    getVersion() {return "0.0.5";}
+    getVersion() {return "0.0.6";}
     getAuthor() {return "Valafi#7698";}
 
     start() {
@@ -107,69 +107,78 @@ class MoreEmbeddedPlayers {
         // TODO: Come up with better way to prevent re-embedding. Currently it won't find an embedLink-1TLNja
 
         // Get embed links
-        let links = e.getElementsByClassName("embedLink-1TLNja");
+        const links = e.getElementsByClassName("embedLink-1TLNja");
         if (links.length == 0) { return; }
         
         // Get embed url
-        let url = new URL(links[0]); // TODO: Remove assumption here
+        const url = new URL(links[0]); // TODO: Remove assumption here
 
         // TODO: Does Google Photos have an embeddable viewer? Currently Discord just loads single images fine, but for albums it just loads the first image
-        if (url.hostname == "docs.google.com") { // Docs, Spreadsheets, Slides, Forms, Drawings
-            if (this.settings.google_drive == false) { return; }
+        switch(url.hostname) {
+            case "docs.google.com": // Docs, Spreadsheets, Slides, Forms, Drawings
+            case "drive.google.com": // Everything. What users will likely put in: Videos, Audio, Images, PDF, archives, Excel sheets
+                if (this.settings.google_drive == false) { return; }
 
-            e.setAttribute("style", "border-color: hsl(214, calc(var(--saturation-factor, 1) * 100%), 51%);");
-            this.embedGoogleDocs(url, e.firstChild)
-        } else if (url.hostname == "drive.google.com") { // Everything. What users will likely put in: Videos, Audio, Images, PDF, archives, Excel sheets
-            if (this.settings.google_drive == false) { return; }
-
-            e.setAttribute("style", "border-color: hsl(214, calc(var(--saturation-factor, 1) * 100%), 51%);");
-            this.embedGoogleDrive(url, e.firstChild);
-        } else if (url.hostname.split(".")[1].toLowerCase() == "bandcamp") {
-            if (this.settings.bandcamp == false) { return; }
-            
-            e.setAttribute("style", "border-color: hsl(193, calc(var(--saturation-factor, 1) * 100%), 44%);");
-            this.embedBandcamp(url, e.firstChild);
-        } else if (url.hostname == "mega.nz") {
-            if (this.settings.mega == false) { return; }
-
-            // Get message content
-            let messages = e.parentElement.parentElement.getElementsByClassName("messageContent-2t3eCI");
-            if (messages.length == 0) { return; }
-
-            // Get links from message
-            let anchors = messages[0].getElementsByTagName("a");  // TODO: Remove assumption here
-
-            // Find full URL since embed URL is missing the decription key
-            let fullURL;
-            for (let a of anchors) {
-                if (a.href.startsWith(url) == true) {
-                    fullURL = new URL(a.href);
-                    break;
+                e.setAttribute("style", "border-color: hsl(214, calc(var(--saturation-factor, 1) * 100%), 51%);");
+                if (url.hostname == "docs.google.com") {
+                    this.embedGoogleDocs(url, e.firstChild);
+                } else {
+                    this.embedGoogleDrive(url, e.firstChild);
                 }
-            }
-            if (fullURL == null) { return; }
 
-            e.setAttribute("style", "border-color: hsl(357, calc(var(--saturation-factor, 1) * 100%), 63%);");
-            this.embedMega(fullURL, e.firstChild);
-        } else if (url.hostname == "soundcloud.com") {
-            // Override the Soundcloud embed border color to something not awful
-            e.setAttribute("style", "border-color: hsl(20, calc(var(--saturation-factor, 1) * 100%), 50%);");
+                break;
+            case "mega.nz":
+                if (this.settings.mega == false) { return; }
+
+                // Get message content
+                const messages = e.parentElement.parentElement.getElementsByClassName("messageContent-2t3eCI");
+                if (messages.length == 0) { return; }
+
+                // Get links from message
+                const anchors = messages[0].getElementsByTagName("a");  // TODO: Remove assumption here
+
+                // Find full URL since embed URL is missing the decription key
+                let fullURL;
+                for (let a of anchors) {
+                    if (a.href.startsWith(url) == true) {
+                        fullURL = new URL(a.href);
+                        break;
+                    }
+                }
+                if (fullURL == null) { return; }
+
+                e.setAttribute("style", "border-color: hsl(357, calc(var(--saturation-factor, 1) * 100%), 63%);");
+                this.embedMega(fullURL, e.firstChild);
+
+                break;
+            case "soundcloud.com":
+                // Override the Soundcloud embed border color to something not awful
+                e.setAttribute("style", "border-color: hsl(20, calc(var(--saturation-factor, 1) * 100%), 50%);");
+
+                break;
+            default:
+                if (url.hostname.split(".")[1].toLowerCase() == "bandcamp") {
+                    if (this.settings.bandcamp == false) { return; }
+                    
+                    e.setAttribute("style", "border-color: hsl(193, calc(var(--saturation-factor, 1) * 100%), 44%);");
+                    this.embedBandcamp(url, e.firstChild);
+                }
         }
     }
 
     handleAttachment(a) {
         // Get attachment links
-        let links = a.getElementsByClassName("fileNameLink-1odyIc");
+        const links = a.getElementsByClassName("fileNameLink-1odyIc");
         if (links.length == 0) { return; }
 
         // Get attachment url
-        let url = new URL(links[0]); // TODO: Remove assumption here
+        const url = new URL(links[0]); // TODO: Remove assumption here
 
         // Get attachment file extension
         let ext;
         let ext2;
         {
-            let parts = url.pathname.split(".");
+            const parts = url.pathname.split(".");
             ext = parts[parts.length - 1];
             ext2 = "";
 
@@ -297,7 +306,6 @@ class MoreEmbeddedPlayers {
         } else {
             // Download the track/album page for parsing
             const responseText = await this.proxyDownload(url);
-            console.log(responseText);
 
             // Parse item type
             item_type = responseText.match(/item_type=((track)|(album))/g);
@@ -338,7 +346,7 @@ class MoreEmbeddedPlayers {
     }
 
     embedGoogleDocs(url, embedElement) { // TODO: Custom embed becomes blank if I remove public access // TODO: Should combind embedGoogleDocs() and embedGoogleDrive
-        let id = url.pathname.split("/")[3];
+        const id = url.pathname.split("/")[3];
 
         embedElement.innerHTML = `
 <iframe src="https://drive.google.com/file/d/${id}/preview" width="480" height="360" allowfullscreen="allowfullscreen"></iframe>
@@ -348,7 +356,7 @@ class MoreEmbeddedPlayers {
     embedGoogleDrive(url, embedElement) { // TODO: This is being used for images too, but allowfullscreen only works for videos // TODO: Audio and Images have blank space due to player size, but audio could have img
         url.search = "" // Removes "?usp=sharing"
         url.pathname = (() => {
-            let parts = url.pathname.split("/").slice(0, 4); // Removes "/view" or "/edit"
+            const parts = url.pathname.split("/").slice(0, 4); // Removes "/view" or "/edit"
             parts.push("preview"); // Adds "/preview"
 
             return parts.join("/");
@@ -365,7 +373,7 @@ class MoreEmbeddedPlayers {
         // Embed form: <iframe width="640" height="360" frameborder="0" src="https://mega.nz/embed/FphUiDwZ#4pMv-rWQ5Mx_hkcq2JsWZOnR3EZQ8TMP8CGo2h8D_HY" allowfullscreen ></iframe>
 
         url.pathname = (() => {
-            let parts = url.pathname.split("/");
+            const parts = url.pathname.split("/");
             parts[1] = "embed"; // Change "file" to "embed"
 
             return parts.join("/");
@@ -377,8 +385,8 @@ class MoreEmbeddedPlayers {
     }
 
     attachCowbell(url, attachmentElement) {
-        let iframe = document.createElement('iframe');
-        let html = `
+        const iframe = document.createElement('iframe');
+        const html = `
 <!DOCTYPE HTML>
 <html>
     <head>
@@ -390,32 +398,32 @@ class MoreEmbeddedPlayers {
         <meta name="viewport" content="width=device-width">
 
         <script src="https://demozoo.github.io/cowbell/cowbell/cowbell.min.js"></script>
-        <script src="https://demozoo.github.io/cowbell/cowbell/ay_chip.min.js"></script>
-        <script src="https://demozoo.github.io/cowbell/cowbell/vtx.min.js"></script>
-        <script src="https://demozoo.github.io/cowbell/cowbell/zx.min.js"></script>
+        <!--<script src="https://demozoo.github.io/cowbell/cowbell/ay_chip.min.js"></script>-->
+        <!--<script src="https://demozoo.github.io/cowbell/cowbell/vtx.min.js"></script>-->
+        <!--<script src="https://demozoo.github.io/cowbell/cowbell/zx.min.js"></script>-->
         <script src="https://demozoo.github.io/cowbell/cowbell/openmpt.min.js"></script>
-        <script src="https://demozoo.github.io/cowbell/cowbell/jssid.min.js"></script>
-        <script src="https://demozoo.github.io/cowbell/cowbell/asap.min.js"></script>
+        <!--<script src="https://demozoo.github.io/cowbell/cowbell/jssid.min.js"></script>-->
+        <!--<script src="https://demozoo.github.io/cowbell/cowbell/asap.min.js"></script>-->
 
         <script>
             function go() {
-                var audioPlayer = new Cowbell.Player.Audio();
-                var psgZXPlayer = new Cowbell.Player.PSG();
-                var psgSTPlayer = new Cowbell.Player.PSG({ayFrequency: 2000000, ayMode:"YM"});
-                var stcPlayer = new Cowbell.Player.ZXSTC({stereoMode: 'acb'});
-                var pt3Player = new Cowbell.Player.ZXPT3({stereoMode: 'acb'});
-                var sqtPlayer = new Cowbell.Player.ZXSQT({stereoMode: 'acb'});
-                var vtxPlayer = new Cowbell.Player.VTX();
-                var modPlayer = new Cowbell.Player.OpenMPT({
+                //const audioPlayer = new Cowbell.Player.Audio();
+                //const psgZXPlayer = new Cowbell.Player.PSG();
+                //const psgSTPlayer = new Cowbell.Player.PSG({ayFrequency: 2000000, ayMode:"YM"});
+                //const stcPlayer = new Cowbell.Player.ZXSTC({stereoMode: 'acb'});
+                //const pt3Player = new Cowbell.Player.ZXPT3({stereoMode: 'acb'});
+                //const sqtPlayer = new Cowbell.Player.ZXSQT({stereoMode: 'acb'});
+                //const vtxPlayer = new Cowbell.Player.VTX();
+                const modPlayer = new Cowbell.Player.OpenMPT({
                     'pathToLibOpenMPT': 'https://demozoo.github.io/cowbell/cowbell/libopenmpt.js'
                 });
-                var sidPlayer = new Cowbell.Player.JSSID();
-                var asapPlayer = new Cowbell.Player.ASAP();
+                //const sidPlayer = new Cowbell.Player.JSSID();
+                //const asapPlayer = new Cowbell.Player.ASAP();
 
-                var track = new modPlayer.Track('${this.settings.override_cors_proxy ? this.settings.custom_cors_proxy : "https://api.allorigins.win/raw?url="}${encodeURIComponent(url)}');
+                const track = new modPlayer.Track('${this.settings.override_cors_proxy ? this.settings.custom_cors_proxy : "https://api.allorigins.win/raw?url="}${encodeURIComponent(url)}');
 
-                var container = document.getElementById('player');
-                var playerUI = new Cowbell.UI.Basic(container);
+                const container = document.getElementById('player');
+                const playerUI = new Cowbell.UI.Basic(container);
 
                 playerUI.open(track);
 
@@ -430,7 +438,7 @@ class MoreEmbeddedPlayers {
 </html>
         `;
         iframe.src = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
-        let previous = document.createElement("div");
+        const previous = document.createElement("div");
         previous.style = "display: flex; align-items: center; margin-bottom: 10px;";
         previous.append(...attachmentElement.childNodes);
         previous.firstChild.src = "/assets/e83eaad3ae5c32a355b55f157e6cd3da.svg";
