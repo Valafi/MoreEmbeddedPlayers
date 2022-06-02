@@ -4,7 +4,7 @@
  * @donate https://paypal.me/Valafi
  * @website https://github.com/Valafi/MoreEmbeddedPlayers
  * @source https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
- * @version 0.0.6
+ * @version 0.0.7
  * @updateUrl https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
  */
 
@@ -15,7 +15,7 @@
 class MoreEmbeddedPlayers {
     getName() {return "MoreEmbeddedPlayers";}
     getDescription() {return "Adds embedded players for: Bandcamp, Google Drive, Mega, and module audio files (over 50 types). More to come! Note: Certain features require the usage of a CORS bypass proxy to download data like album IDs, you can override the proxy used in the plugin settings.";}
-    getVersion() {return "0.0.6";}
+    getVersion() {return "0.0.7";}
     getAuthor() {return "Valafi#7698";}
 
     start() {
@@ -308,26 +308,40 @@ class MoreEmbeddedPlayers {
             const responseText = await this.proxyDownload(url);
 
             // Parse item type
-            item_type = responseText.match(/item_type=((track)|(album))/g);
-            if (item_type == null) { BdApi.showToast("ERROR!"); return; } // TODO: Make proper error handling
-            item_type = item_type[0].split("=")[1];
+            {
+                const results = responseText.match(/item_type=((track)|(album))/g);
+                if (results == null) {
+                    const message = "Error parsing Bandcamp page: could not find reference to item_type.";
+                    throw new Error(message);
+                }
+
+                item_type = results[0].split("=")[1]; // Split the first result into key and value, keep the value
+            }
 
             // Parse item id
-            item_id = responseText.match(/item_id=[0-9]+/g);
-            if (item_id == null) { BdApi.showToast("ERROR!"); return; } // TODO: Make proper error handling
-            item_id = item_id[0].split("=")[1];
+            {
+                const results = responseText.match(/item_id=[0-9]+/g);
+                if (results == null) {
+                    const message = "Error parsing Bandcamp page: could not find reference to item_id.";
+                    throw new Error(message);
+                }
 
-            // Save item type and id to cache
-            this.settings.cache[url] = {};
-            this.settings.cache[url].item_type = item_type;
-            this.settings.cache[url].item_id = item_id;
-            this.saveSettings();
+                item_id = results[0].split("=")[1]; // Split the first result into key and value, keep the value
+            }
+
+            // Asynchronously save item type and id to cache
+            (async () => {
+                this.settings.cache[url] = {};
+                this.settings.cache[url].item_type = item_type;
+                this.settings.cache[url].item_id = item_id;
+                this.saveSettings();
+            })();
         }
 
         const rawTitle = "Bandcamp link"; // TODO: Implement rawTitle
 
         // Create embedded player
-        const iframe = document.createElement("iframe");
+        const iframe = document.createElement("iframe"); // In src, track originally has 'tracklist=false', album originally has ''
         iframe.setAttribute("style", `border: 0; width: 350px; height: ${(item_type == "album") ? "786" : "442"}px;`);
         iframe.setAttribute("src", `https://bandcamp.com/EmbeddedPlayer/${item_type}=${item_id}/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=${(item_type == "album")}/transparent=true/`);
         iframe.setAttribute("seamless", "");
@@ -348,9 +362,19 @@ class MoreEmbeddedPlayers {
     embedGoogleDocs(url, embedElement) { // TODO: Custom embed becomes blank if I remove public access // TODO: Should combind embedGoogleDocs() and embedGoogleDrive
         const id = url.pathname.split("/")[3];
 
-        embedElement.innerHTML = `
-<iframe src="https://drive.google.com/file/d/${id}/preview" width="480" height="360" allowfullscreen="allowfullscreen"></iframe>
-        `; // Original embed options: width="640" height="480" allow="autoplay"
+        // Create embedded player
+        const iframe = document.createElement("iframe");
+        iframe.setAttribute("src", `https://drive.google.com/file/d/${id}/preview`);
+        iframe.setAttribute("width", "480"); // Originally 640
+        iframe.setAttribute("height", "360"); // Originally 480
+        iframe.setAttribute("allowfullscreen", ""); // New
+        // Removed allow="autoplay"
+
+        // Replace embed with embedded player
+        while (embedElement.firstChild) {
+            embedElement.removeChild(embedElement.firstChild);
+        }
+        embedElement.appendChild(iframe);
     }
 
     embedGoogleDrive(url, embedElement) { // TODO: This is being used for images too, but allowfullscreen only works for videos // TODO: Audio and Images have blank space due to player size, but audio could have img
@@ -362,9 +386,19 @@ class MoreEmbeddedPlayers {
             return parts.join("/");
         })();
 
-        embedElement.innerHTML = `
-<iframe src="${url}" width="480" height="360" allowfullscreen="allowfullscreen"></iframe>
-        `; // Original embed options: width="640" height="480" allow="autoplay"
+        // Create embedded player
+        const iframe = document.createElement("iframe");
+        iframe.setAttribute("src", url);
+        iframe.setAttribute("width", "480"); // Originally 640
+        iframe.setAttribute("height", "360"); // Originally 480
+        iframe.setAttribute("allowfullscreen", ""); // New
+        // Removed allow="autoplay"
+
+        // Replace embed with embedded player
+        while (embedElement.firstChild) {
+            embedElement.removeChild(embedElement.firstChild);
+        }
+        embedElement.appendChild(iframe);
     }
 
     embedMega(url, embedElement) { // TODO: Don't embed when decryption key is missing from URL // TODO: Add optional step where the filename extension is checked before embedding, can cache too
@@ -379,9 +413,19 @@ class MoreEmbeddedPlayers {
             return parts.join("/");
         })();
 
-        embedElement.innerHTML = `
-<iframe width="360" height="270" frameborder="0" src="${url}" allowfullscreen ></iframe>
-        `; // Original embed options: width="640" height="360"
+        // Create embedded player
+        const iframe = document.createElement("iframe");
+        iframe.setAttribute("width", "360"); // Originally 640
+        iframe.setAttribute("height", "270"); // Originally 360
+        iframe.setAttribute("frameborder", "0");
+        iframe.setAttribute("src", url);
+        iframe.setAttribute("allowfullscreen", "");
+
+        // Replace embed with embedded player
+        while (embedElement.firstChild) {
+            embedElement.removeChild(embedElement.firstChild);
+        }
+        embedElement.appendChild(iframe);
     }
 
     attachCowbell(url, attachmentElement) {
