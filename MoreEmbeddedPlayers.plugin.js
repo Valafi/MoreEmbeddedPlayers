@@ -4,7 +4,7 @@
  * @donate https://paypal.me/Valafi
  * @website https://github.com/Valafi/MoreEmbeddedPlayers
  * @source https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
- * @version 0.0.3
+ * @version 0.0.4
  * @updateUrl https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
  */
 
@@ -15,7 +15,7 @@
 class MoreEmbeddedPlayers {
     getName() {return "MoreEmbeddedPlayers";}
     getDescription() {return "Adds embedded players for: Bandcamp, Google Drive, Mega, and module audio files (over 50 types). More to come! Note: Certain features require the usage of a CORS bypass proxy to download data like album IDs, you can override the proxy used in the plugin settings.";}
-    getVersion() {return "0.0.3";}
+    getVersion() {return "0.0.4";}
     getAuthor() {return "Valafi#7698";}
 
     start() {
@@ -66,7 +66,6 @@ class MoreEmbeddedPlayers {
     }
 
     handleMutation(mutations) { // TODO: Jumping to a message means it doesn't embed. // TODO: Embedding for messages in a search is buggy, starts off not working, then every letter typed reloads it?
-        //console.log(mutations);
         if (mutations.length <= 0) { return; }
         for (let m of mutations) {
             if (m.addedNodes.length <= 0) { continue; }
@@ -77,23 +76,18 @@ class MoreEmbeddedPlayers {
 
                     switch (classname) {
                         case "messageListItem-ZZ7v6g":
-                            //console.log("Message detected!");
                             searchElement = node.ownerDocument.getElementById(node.id.replace("chat-messages-", "message-accessories-"));
                             break;
                         case "chatContent-3KubbW":
-                            //console.log("Channel detected!");
                             searchElement = node.ownerDocument;
                             break;
                         case "embed-hKpSrO":
                         case "attachment-1PZZB2": // TODO: Is this case necessary?
-                            //console.log("Message edit detected!")
                             searchElement = node.parentElement;
                     }
 
                     if (searchElement) {
-                        //console.log("Searching...");
                         for (let embed of searchElement.getElementsByClassName("embed-hKpSrO")) {
-                            //console.log("Handling!");
                             this.handleEmbed(embed);
                         }
 
@@ -112,15 +106,12 @@ class MoreEmbeddedPlayers {
         // TODO: Improve cache storage to reduce redundancy
         // TODO: Come up with better way to prevent re-embedding. Currently it won't find an embedLink-1TLNja
 
-        //console.log(e);
-
         // Get embed links
         let links = e.getElementsByClassName("embedLink-1TLNja");
         if (links.length == 0) { return; }
         
         // Get embed url
         let url = new URL(links[0]); // TODO: Remove assumption here
-        //console.log(url)
 
         // TODO: Does Google Photos have an embeddable viewer? Currently Discord just loads single images fine, but for albums it just loads the first image
         if (url.hostname == "docs.google.com") { // Docs, Spreadsheets, Slides, Forms, Drawings
@@ -202,8 +193,6 @@ class MoreEmbeddedPlayers {
                     ext = parts[parts.length - 2];
             }
         }
-        //console.log(url);
-        //console.log(ext, ext2);
 
         switch (ext.toLowerCase()) {
             // MODULE AUDIO FILES https://wiki.openmpt.org/Manual:_Module_formats, not supported: ahx, hvl
@@ -281,7 +270,6 @@ class MoreEmbeddedPlayers {
                         if (ext2 != "") { return; }
                 }
 
-                //console.log("Module file detected!");
                 if (this.settings.module_audio == false) { return; }
                 this.attachCowbell(url, a);
         }
@@ -292,7 +280,6 @@ class MoreEmbeddedPlayers {
         let self = this;
         xhr.onreadystatechange = function()
         {
-            //console.log(self);
             if (xhr.readyState == 4)
             {
                 if (xhr.status == 200) {
@@ -307,9 +294,6 @@ class MoreEmbeddedPlayers {
     }
 
     embedBandcamp(self, url, responseText, embedElement) {
-        //console.log(self);
-        //console.log("Using download!");
-
         let item_type = responseText.match(/item_type=((track)|(album))/g);
         if (item_type == null) { BdApi.showToast("ERROR!"); return; }
         item_type = item_type[0].split("=")[1];
@@ -317,11 +301,9 @@ class MoreEmbeddedPlayers {
         let item_id = responseText.match(/item_id=[0-9]+/g);
         if (item_id == null) { BdApi.showToast("ERROR!"); return; }
         item_id = item_id[0].split("=")[1];
-        //console.log(item_id);
 
         let rawTitle = "Bandcamp link"; // TODO: Implement rawTitle
 
-        //console.log(this);
         self.settings.cache[url] = {};
         self.settings.cache[url].item_type = item_type;
         self.settings.cache[url].item_id = item_id;
@@ -340,21 +322,16 @@ class MoreEmbeddedPlayers {
 </iframe>
             `;
         }
-        //console.log(embedElement);
     }
 
     embedBandcampCached(url, embedElement) {
-        //console.log("Using cache!");
-
         let item_type = this.settings.cache[url].item_type;
         let item_id = this.settings.cache[url].item_id;
 
         let rawTitle = "Bandcamp link"; // TODO: Implement rawTitle
 
         let iframe = document.createElement("iframe");
-        iframe.setAttribute("style", "border: 0; width: 350px; height: 786px;");
-        iframe.setAttribute("width", "350px");
-        iframe.setAttribute("height", "786");
+        iframe.setAttribute("style", `border: 0; width: 350px; height: ${(item_type == "album") ? "786" : "442"}px;`);
         iframe.setAttribute("src", `https://bandcamp.com/EmbeddedPlayer/${item_type}=${item_id}/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=${(item_type == "album")}/transparent=true/`);
         iframe.setAttribute("seamless", "");
 
@@ -385,7 +362,6 @@ class MoreEmbeddedPlayers {
 
             return parts.join("/");
         })();
-        //console.log(url);
 
         embedElement.innerHTML = `
 <iframe src="${url}" width="480" height="360" allowfullscreen="allowfullscreen"></iframe>
