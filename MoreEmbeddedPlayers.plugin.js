@@ -4,7 +4,7 @@
  * @donate https://paypal.me/Valafi
  * @website https://github.com/Valafi/MoreEmbeddedPlayers
  * @source https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
- * @version 0.0.4
+ * @version 0.0.5
  * @updateUrl https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
  */
 
@@ -15,7 +15,7 @@
 class MoreEmbeddedPlayers {
     getName() {return "MoreEmbeddedPlayers";}
     getDescription() {return "Adds embedded players for: Bandcamp, Google Drive, Mega, and module audio files (over 50 types). More to come! Note: Certain features require the usage of a CORS bypass proxy to download data like album IDs, you can override the proxy used in the plugin settings.";}
-    getVersion() {return "0.0.4";}
+    getVersion() {return "0.0.5";}
     getAuthor() {return "Valafi#7698";}
 
     start() {
@@ -75,13 +75,13 @@ class MoreEmbeddedPlayers {
                     let searchElement;
 
                     switch (classname) {
-                        case "messageListItem-ZZ7v6g":
+                        case "messageListItem-ZZ7v6g": // Message detected
                             searchElement = node.ownerDocument.getElementById(node.id.replace("chat-messages-", "message-accessories-"));
                             break;
-                        case "chatContent-3KubbW":
+                        case "chatContent-3KubbW": // Channel detected
                             searchElement = node.ownerDocument;
                             break;
-                        case "embed-hKpSrO":
+                        case "embed-hKpSrO": // Message edit detected
                         case "attachment-1PZZB2": // TODO: Is this case necessary?
                             searchElement = node.parentElement;
                     }
@@ -128,13 +128,7 @@ class MoreEmbeddedPlayers {
             if (this.settings.bandcamp == false) { return; }
             
             e.setAttribute("style", "border-color: hsl(193, calc(var(--saturation-factor, 1) * 100%), 44%);");
-            if (this.settings.cache[url]) {
-                // Embed iframe
-                this.embedBandcampCached(url, e.firstChild);
-            } else {
-                // Trigger Bandcamp page download and embed iframe
-                this.download(url, this.embedBandcamp, e.firstChild);
-            }
+            this.embedBandcamp(url, e.firstChild);
         } else if (url.hostname == "mega.nz") {
             if (this.settings.mega == false) { return; }
 
@@ -275,72 +269,69 @@ class MoreEmbeddedPlayers {
         }
     }
 
-    download(url, callback, ...callbackArgs) {
-        let xhr = new XMLHttpRequest();
-        let self = this;
-        xhr.onreadystatechange = function()
-        {
-            if (xhr.readyState == 4)
-            {
-                if (xhr.status == 200) {
-                    callback(self, url, xhr.responseText, ...callbackArgs);
-                } else {
-                    console.error("Failed to download (" + xhr.status + "): " + url)
-                }
-            }
+    async download(url) {
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            const message = `An error has occured: ${response.status}`;
+            throw new Error(message);
         }
-        xhr.open("GET", `${this.settings.override_cors_proxy ? this.settings.custom_cors_proxy : "https://api.allorigins.win/raw?url="}${encodeURIComponent(url)}`, true); // TODO: Does asynchronous cause issues? I should validate element still exists
-        xhr.send();
+
+        const text = await response.text();
+        return text;
     }
 
-    embedBandcamp(self, url, responseText, embedElement) {
-        let item_type = responseText.match(/item_type=((track)|(album))/g);
-        if (item_type == null) { BdApi.showToast("ERROR!"); return; }
-        item_type = item_type[0].split("=")[1];
-
-        let item_id = responseText.match(/item_id=[0-9]+/g);
-        if (item_id == null) { BdApi.showToast("ERROR!"); return; }
-        item_id = item_id[0].split("=")[1];
-
-        let rawTitle = "Bandcamp link"; // TODO: Implement rawTitle
-
-        self.settings.cache[url] = {};
-        self.settings.cache[url].item_type = item_type;
-        self.settings.cache[url].item_id = item_id;
-        self.saveSettings();
-
-        if (item_type == "track") {
-            embedElement.innerHTML = `
-<iframe style="border: 0; width: 350px; height: 442px;" src="https://bandcamp.com/EmbeddedPlayer/track=${item_id}/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/transparent=true/" seamless>
-    <a href="${url}">${rawTitle}</a>
-</iframe>
-            `;   
-        } else if (item_type == "album") {
-            embedElement.innerHTML = `
-<iframe style="border: 0; width: 350px; height: 786px;" src="https://bandcamp.com/EmbeddedPlayer/album=${item_id}/size=large/bgcol=ffffff/linkcol=0687f5/transparent=true/" seamless>
-    <a href="${url}">${rawTitle}</a>
-</iframe>
-            `;
-        }
+    async proxyDownload(url) {
+        const proxy = `${this.settings.override_cors_proxy ? this.settings.custom_cors_proxy : "https://api.allorigins.win/raw?url="}`;
+        const text = await this.download(`${proxy}${encodeURIComponent(url)}`);
+        return text;
     }
 
-    embedBandcampCached(url, embedElement) {
-        let item_type = this.settings.cache[url].item_type;
-        let item_id = this.settings.cache[url].item_id;
+    async embedBandcamp(url, embedElement) {
+        // Get the item type and id from the cache or the Internet
+        let item_type, item_id;
+        if (this.settings.cache[url]) {
+            // Get type and id from local cache
+            item_type = this.settings.cache[url].item_type;
+            item_id = this.settings.cache[url].item_id;
+        } else {
+            // Download the track/album page for parsing
+            const responseText = await this.proxyDownload(url);
+            console.log(responseText);
 
-        let rawTitle = "Bandcamp link"; // TODO: Implement rawTitle
+            // Parse item type
+            item_type = responseText.match(/item_type=((track)|(album))/g);
+            if (item_type == null) { BdApi.showToast("ERROR!"); return; } // TODO: Make proper error handling
+            item_type = item_type[0].split("=")[1];
 
-        let iframe = document.createElement("iframe");
+            // Parse item id
+            item_id = responseText.match(/item_id=[0-9]+/g);
+            if (item_id == null) { BdApi.showToast("ERROR!"); return; } // TODO: Make proper error handling
+            item_id = item_id[0].split("=")[1];
+
+            // Save item type and id to cache
+            this.settings.cache[url] = {};
+            this.settings.cache[url].item_type = item_type;
+            this.settings.cache[url].item_id = item_id;
+            this.saveSettings();
+        }
+
+        const rawTitle = "Bandcamp link"; // TODO: Implement rawTitle
+
+        // Create embedded player
+        const iframe = document.createElement("iframe");
         iframe.setAttribute("style", `border: 0; width: 350px; height: ${(item_type == "album") ? "786" : "442"}px;`);
         iframe.setAttribute("src", `https://bandcamp.com/EmbeddedPlayer/${item_type}=${item_id}/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=${(item_type == "album")}/transparent=true/`);
         iframe.setAttribute("seamless", "");
 
-        let a = document.createElement("a");
+        // Create Bandcamp's rawTitle fallback
+        const a = document.createElement("a");
         a.setAttribute("href", `${url}`);
         a.textContent = rawTitle;
         iframe.appendChild(a);
 
-        while (embedElement.firstChild) {
+        // Replace embed with embedded player
+        while (embedElement.firstChild) { // TODO: Should probably validate embedElement still exists and hasn't changed
             embedElement.removeChild(embedElement.firstChild);
         }
         embedElement.appendChild(iframe);
