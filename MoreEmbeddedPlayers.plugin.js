@@ -4,7 +4,7 @@
  * @donate https://paypal.me/Valafi
  * @website https://github.com/Valafi/MoreEmbeddedPlayers
  * @source https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
- * @version 0.0.7
+ * @version 0.0.8
  * @updateUrl https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
  */
 
@@ -15,7 +15,7 @@
 class MoreEmbeddedPlayers {
     getName() {return "MoreEmbeddedPlayers";}
     getDescription() {return "Adds embedded players for: Bandcamp, Google Drive, Mega, and module audio files (over 50 types). More to come! Note: Certain features require the usage of a CORS bypass proxy to download data like album IDs, you can override the proxy used in the plugin settings.";}
-    getVersion() {return "0.0.7";}
+    getVersion() {return "0.0.8";}
     getAuthor() {return "Valafi#7698";}
 
     start() {
@@ -153,7 +153,7 @@ class MoreEmbeddedPlayers {
                 break;
             case "soundcloud.com":
                 // Override the Soundcloud embed border color to something not awful
-                e.setAttribute("style", "border-color: hsl(20, calc(var(--saturation-factor, 1) * 100%), 50%);");
+                e.style.borderColor = "hsl(20, calc(var(--saturation-factor, 1) * 100%), 50%)";
 
                 break;
             default:
@@ -274,7 +274,7 @@ class MoreEmbeddedPlayers {
                 }
 
                 if (this.settings.module_audio == false) { return; }
-                this.attachCowbell(url, a);
+                this.attachCowbell(url, a, 7);
         }
     }
 
@@ -428,7 +428,7 @@ class MoreEmbeddedPlayers {
         embedElement.appendChild(iframe);
     }
 
-    attachCowbell(url, attachmentElement) {
+    attachCowbell(url, attachmentElement, playerIndex) {
         const iframe = document.createElement('iframe');
         const html = `
 <!DOCTYPE HTML>
@@ -442,29 +442,58 @@ class MoreEmbeddedPlayers {
         <meta name="viewport" content="width=device-width">
 
         <script src="https://demozoo.github.io/cowbell/cowbell/cowbell.min.js"></script>
-        <!--<script src="https://demozoo.github.io/cowbell/cowbell/ay_chip.min.js"></script>-->
-        <!--<script src="https://demozoo.github.io/cowbell/cowbell/vtx.min.js"></script>-->
-        <!--<script src="https://demozoo.github.io/cowbell/cowbell/zx.min.js"></script>-->
-        <script src="https://demozoo.github.io/cowbell/cowbell/openmpt.min.js"></script>
-        <!--<script src="https://demozoo.github.io/cowbell/cowbell/jssid.min.js"></script>-->
-        <!--<script src="https://demozoo.github.io/cowbell/cowbell/asap.min.js"></script>-->
+        ${(() => {
+            switch (playerIndex) {
+                case 0: // audioPlayer
+                    return ``;
+                case 1: // psgZXPlayer
+                case 2: // psgSTPlayer
+                    return `<script src="https://demozoo.github.io/cowbell/cowbell/ay_chip.min.js"></script>`;
+                case 3: // stcPlayer
+                case 4: // pt3Player
+                case 5: // sqtPlayer
+                    return `<script src="https://demozoo.github.io/cowbell/cowbell/zx.min.js"></script>`;
+                case 6: // vtxPlayer
+                    return `<script src="https://demozoo.github.io/cowbell/cowbell/vtx.min.js"></script>`;
+                case 7: // modPlayer
+                    return `<script src="https://demozoo.github.io/cowbell/cowbell/openmpt.min.js"></script>`;
+                case 8: // sidPlayer
+                    return `<script src="https://demozoo.github.io/cowbell/cowbell/jssid.min.js"></script>`;
+                case 9: // asapPlayer
+                    return `<script src="https://demozoo.github.io/cowbell/cowbell/asap.min.js"></script>`;
+            }
+        })()}
 
         <script>
             function go() {
-                //const audioPlayer = new Cowbell.Player.Audio();
-                //const psgZXPlayer = new Cowbell.Player.PSG();
-                //const psgSTPlayer = new Cowbell.Player.PSG({ayFrequency: 2000000, ayMode:"YM"});
-                //const stcPlayer = new Cowbell.Player.ZXSTC({stereoMode: 'acb'});
-                //const pt3Player = new Cowbell.Player.ZXPT3({stereoMode: 'acb'});
-                //const sqtPlayer = new Cowbell.Player.ZXSQT({stereoMode: 'acb'});
-                //const vtxPlayer = new Cowbell.Player.VTX();
-                const modPlayer = new Cowbell.Player.OpenMPT({
-                    'pathToLibOpenMPT': 'https://demozoo.github.io/cowbell/cowbell/libopenmpt.js'
-                });
-                //const sidPlayer = new Cowbell.Player.JSSID();
-                //const asapPlayer = new Cowbell.Player.ASAP();
+                ${(() => {
+                    switch (playerIndex) {
+                        case 0: // audioPlayer
+                            return `const player = new Cowbell.Player.Audio();`;
+                        case 1: // psgZXPlayer
+                            return `const player = new Cowbell.Player.PSG();`;
+                        case 2: // psgSTPlayer
+                            return `const player = new Cowbell.Player.PSG({ayFrequency: 2000000, ayMode:"YM"});`;
+                        case 3: // stcPlayer
+                            return `const player = new Cowbell.Player.ZXSTC({stereoMode: 'acb'});`;
+                        case 4: // pt3Player
+                            return `const player = new Cowbell.Player.ZXPT3({stereoMode: 'acb'});`;
+                        case 5: // sqtPlayer
+                            return `const player = new Cowbell.Player.ZXSQT({stereoMode: 'acb'});`;
+                        case 6: // vtxPlayer
+                            return `const player = new Cowbell.Player.VTX();`;
+                        case 7: // modPlayer
+                            return `const player = new Cowbell.Player.OpenMPT({
+                                'pathToLibOpenMPT': 'https://demozoo.github.io/cowbell/cowbell/libopenmpt.js'
+                            });`;
+                        case 8: // sidPlayer
+                            return `const player = new Cowbell.Player.JSSID();`;
+                        case 9: // asapPlayer
+                            return `const player = new Cowbell.Player.ASAP();`;
+                    }
+                })()}
 
-                const track = new modPlayer.Track('${this.settings.override_cors_proxy ? this.settings.custom_cors_proxy : "https://api.allorigins.win/raw?url="}${encodeURIComponent(url)}');
+                const track = new player.Track('${this.settings.override_cors_proxy ? this.settings.custom_cors_proxy : "https://api.allorigins.win/raw?url="}${encodeURIComponent(url)}');
 
                 const container = document.getElementById('player');
                 const playerUI = new Cowbell.UI.Basic(container);
