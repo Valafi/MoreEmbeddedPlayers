@@ -4,7 +4,7 @@
  * @donate https://paypal.me/Valafi
  * @website https://github.com/Valafi/MoreEmbeddedPlayers
  * @source https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
- * @version 0.0.8
+ * @version 0.0.9
  * @updateUrl https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
  */
 
@@ -15,7 +15,7 @@
 class MoreEmbeddedPlayers {
     getName() {return "MoreEmbeddedPlayers";}
     getDescription() {return "Adds embedded players for: Bandcamp, Google Drive, Mega, and module audio files (over 50 types). More to come! Note: Certain features require the usage of a CORS bypass proxy to download data like album IDs, you can override the proxy used in the plugin settings.";}
-    getVersion() {return "0.0.8";}
+    getVersion() {return "0.0.9";}
     getAuthor() {return "Valafi#7698";}
 
     start() {
@@ -40,6 +40,7 @@ class MoreEmbeddedPlayers {
         list.push(new ZLibrary.Settings.Switch("Enable Bandcamp Embedding", "Website embeds for Bandcamp links will be replaced with the Bandcamp player.", this.settings.bandcamp, (value) => { this.settings.bandcamp = value; }, {disabled: false}));
         list.push(new ZLibrary.Settings.Switch("Enable Google Drive Embedding", "Website embeds for Google Drive file links will be replaced with the Google Drive Previewer.\nSupport coming soon for these types: My Maps, Apps Script, Jamboard.", this.settings.google_drive, (value) => { this.settings.google_drive = value; }, {disabled: false}));
         list.push(new ZLibrary.Settings.Switch("Enable Mega Embedding", "Website embeds for Mega links will be replaced with the Mega player.", this.settings.mega, (value) => { this.settings.mega = value; }, {disabled: false}));
+        list.push(new ZLibrary.Settings.Switch("Enable TikTok Embedding", "Website embeds for TikTok links will be replaced with the TikTok player.", this.settings.tiktok, (value) => { this.settings.tiktok = value; }, {disabled: false}));
         list.push(new ZLibrary.Settings.Switch("Enable Module Audio Player", "File attachments for module audio files will be playable with a version of the Cowbell player.", this.settings.module_audio, (value) => { this.settings.module_audio = value; }, {disabled: false}));
         list.push(new ZLibrary.Settings.Switch("Override CORS Proxy", "This plugin has two parts which (currently) require a CORS proxy: getting the Bandcamp album/track ID, and downloading module audio file attachments to be played. The default CORS proxy used is from https://allorigins.win, but you can override that by turning this setting on and changing the text below.", this.settings.override_cors_proxy, (value) => { this.settings.override_cors_proxy = value; }, {disabled: false}));
         list.push(new ZLibrary.Settings.Textbox(null, null, this.settings.custom_cors_proxy, (value) => { this.settings.custom_cors_proxy = value; }, {placeholder: "https://api.allorigins.win/raw?url="}));
@@ -58,6 +59,7 @@ class MoreEmbeddedPlayers {
             bandcamp: true,
             google_drive: true,
             mega: true,
+            tiktok: true,
             module_audio: true,
             override_cors_proxy: false,
             custom_cors_proxy: "https://api.allorigins.win/raw?url=",
@@ -114,6 +116,7 @@ class MoreEmbeddedPlayers {
         const url = new URL(links[0]); // TODO: Remove assumption here
 
         // TODO: Does Google Photos have an embeddable viewer? Currently Discord just loads single images fine, but for albums it just loads the first image
+        console.log(url.hostname);
         switch(url.hostname) {
             case "docs.google.com": // Docs, Spreadsheets, Slides, Forms, Drawings
             case "drive.google.com": // Everything. What users will likely put in: Videos, Audio, Images, PDF, archives, Excel sheets
@@ -149,6 +152,33 @@ class MoreEmbeddedPlayers {
 
                 e.setAttribute("style", "border-color: hsl(357, calc(var(--saturation-factor, 1) * 100%), 63%);");
                 this.embedMega(fullURL, e.firstChild);
+
+                break;
+            case "www.tiktok.com":
+                console.log("tiktok noticed");
+                if (this.settings.tiktok == false) { return; }
+                console.log("settings ok");
+
+                // Get message content
+                const messages2 = e.parentElement.parentElement.getElementsByClassName("messageContent-2t3eCI");
+                if (messages2.length == 0) { return; }
+
+                // Get links from message
+                const anchors2 = messages2[0].getElementsByTagName("a");  // TODO: Remove assumption here
+
+                // Find full URL since embed URL is missing the decription key
+                let fullURL2;
+                for (let a of anchors2) {
+                    if (a.href.startsWith(url) == true) {
+                        fullURL2 = new URL(a.href);
+                        break;
+                    }
+                }
+                if (fullURL2 == null) { return; }
+
+                e.setAttribute("style", "border-color: hsl(348, calc(var(--saturation-factor, 1) * 100%), 63%);");
+                console.log("going for embed");
+                this.embedTikTok(fullURL2, e.firstChild);
 
                 break;
             case "soundcloud.com":
@@ -420,6 +450,22 @@ class MoreEmbeddedPlayers {
         iframe.setAttribute("frameborder", "0");
         iframe.setAttribute("src", url);
         iframe.setAttribute("allowfullscreen", "");
+
+        // Replace embed with embedded player
+        while (embedElement.firstChild) {
+            embedElement.removeChild(embedElement.firstChild);
+        }
+        embedElement.appendChild(iframe);
+    }
+
+    async embedTikTok(url, embedElement) { // NOTE: Putting the official TikTok embed HTML markup with their script inside an iFrame gave 403, so we're making the iFrame ourselves instead of relying on their script
+        const embedInfo = JSON.parse(await this.download(`https://www.tiktok.com/oembed?url=${url}`));
+        const videoID = embedInfo.embed_product_id;
+        
+        const iframe = document.createElement("iframe");
+        iframe.setAttribute("width", "100%");
+        iframe.setAttribute("height", "703px");
+        iframe.setAttribute("src", `https://www.tiktok.com/embed/v2/${videoID}`);
 
         // Replace embed with embedded player
         while (embedElement.firstChild) {
