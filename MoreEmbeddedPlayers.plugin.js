@@ -4,7 +4,7 @@
  * @donate https://paypal.me/Valafi
  * @website https://github.com/Valafi/MoreEmbeddedPlayers
  * @source https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
- * @version 0.0.9
+ * @version 0.1.0
  * @updateUrl https://raw.githubusercontent.com/Valafi/MoreEmbeddedPlayers/main/MoreEmbeddedPlayers.plugin.js
  */
 
@@ -14,8 +14,8 @@
 
 class MoreEmbeddedPlayers {
     getName() {return "MoreEmbeddedPlayers";}
-    getDescription() {return "Adds embedded players for: Bandcamp, Google Drive, Mega, and module audio files (over 50 types). More to come! Note: Certain features require the usage of a CORS bypass proxy to download data like album IDs, you can override the proxy used in the plugin settings.";}
-    getVersion() {return "0.0.9";}
+    getDescription() {return "Adds embedded players for: Bandcamp, Google Drive, Mega, TikTok, and module audio files (over 50 types). More to come! Note: Certain features require the usage of a CORS bypass proxy to download data like album IDs, you can override the proxy used in the plugin settings.";}
+    getVersion() {return "0.1.0";}
     getAuthor() {return "Valafi#7698";}
 
     start() {
@@ -116,7 +116,6 @@ class MoreEmbeddedPlayers {
         const url = new URL(links[0]); // TODO: Remove assumption here
 
         // TODO: Does Google Photos have an embeddable viewer? Currently Discord just loads single images fine, but for albums it just loads the first image
-        console.log(url.hostname);
         switch(url.hostname) {
             case "docs.google.com": // Docs, Spreadsheets, Slides, Forms, Drawings
             case "drive.google.com": // Everything. What users will likely put in: Videos, Audio, Images, PDF, archives, Excel sheets
@@ -155,30 +154,11 @@ class MoreEmbeddedPlayers {
 
                 break;
             case "www.tiktok.com":
-                console.log("tiktok noticed");
+                console.log(url);
                 if (this.settings.tiktok == false) { return; }
-                console.log("settings ok");
-
-                // Get message content
-                const messages2 = e.parentElement.parentElement.getElementsByClassName("messageContent-2t3eCI");
-                if (messages2.length == 0) { return; }
-
-                // Get links from message
-                const anchors2 = messages2[0].getElementsByTagName("a");  // TODO: Remove assumption here
-
-                // Find full URL since embed URL is missing the decription key
-                let fullURL2;
-                for (let a of anchors2) {
-                    if (a.href.startsWith(url) == true) {
-                        fullURL2 = new URL(a.href);
-                        break;
-                    }
-                }
-                if (fullURL2 == null) { return; }
 
                 e.setAttribute("style", "border-color: hsl(348, calc(var(--saturation-factor, 1) * 100%), 63%);");
-                console.log("going for embed");
-                this.embedTikTok(fullURL2, e.firstChild);
+                this.embedTikTok(url, e.firstChild);
 
                 break;
             case "soundcloud.com":
@@ -463,9 +443,10 @@ class MoreEmbeddedPlayers {
         const videoID = embedInfo.embed_product_id;
         
         const iframe = document.createElement("iframe");
-        iframe.setAttribute("width", "100%");
+        iframe.setAttribute("width", "323px");
         iframe.setAttribute("height", "703px");
         iframe.setAttribute("src", `https://www.tiktok.com/embed/v2/${videoID}`);
+        iframe.setAttribute("scrolling", "no"); // TODO: Deprecated, but putting "overflow: hidden" on the iframe doesn't work
 
         // Replace embed with embedded player
         while (embedElement.firstChild) {
